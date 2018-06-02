@@ -24,7 +24,7 @@ from tempfile import mkdtemp
 
 class FileBase:
     def __init__(self, filename):
-        self.filename = filename
+        self.filename = filename # We expect the full filename here.
 
 
     def process_file(self):
@@ -82,24 +82,32 @@ class RARFile(FileBase):
         elif mobiIndex > -1:
             self.__rar.extract(namelist[mobiIndex], TMPDIR)
         
-        # Create zip file
-        zipname = join(self.__out_dir,  titlecase(splitext(basename(self.filename))[0].replace("-", " ")) + ".zip")
-        try:
-            with ZipFile(zipname, 'w') as myzip:
-                files_to_zip = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
-                try:
-                    for tmpfile in files_to_zip:
-                        if tmpfile == basename(zipname):
-                            continue
-                        nameparts = splitext(tmpfile)
-                        newfilename = titlecase(nameparts[0].replace("-", " ")) + nameparts[1]
-                        rename(tmpfile, newfilename)
-                        myzip.write(newfilename, compress_type=compression)
-                finally:
-                    myzip.close()
-                    # Move zip file out of the way, before next cleanup
-                    #shutil.move(zipname, self.__out_dir)
-        except Exception as e: print(e)
+        extracted_files = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
+
+        for tmpfile in extracted_files:
+            nameparts = splitext(tmpfile)
+            newfilename = titlecase(nameparts[0].replace("-", " ")) + nameparts[1]
+            rename(tmpfile, newfilename)
+        # Reaquire list of files
+        extracted_files = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
+
+        if len(extracted_files) == 0:
+            # Do nothing
+            pass
+        elif len(extracted_files) == 1:
+            # Copy the single file to the output dir
+            shutil.move(extracted_files[0], self.__out_dir)
+        else:
+            # Create zip file
+            zipname = join(self.__out_dir,  titlecase(splitext(basename(self.filename))[0].replace("-", " ")) + ".zip")
+            try:
+                with ZipFile(zipname, 'w') as myzip:
+                    try:
+                        for tmpfile in extracted_files:
+                            myzip.write(tmpfile, compress_type=compression)
+                    finally:
+                        myzip.close()
+            except Exception as e: print(e)
 
         # Delete temp directory
         shutil.rmtree(TMPDIR)
