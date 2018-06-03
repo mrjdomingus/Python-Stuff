@@ -6,7 +6,7 @@ from os import listdir, mkdir, chdir, rename, remove
 os.environ["UNRAR_LIB_PATH"] = "/usr/lib/libunrar.so"
 from unrar import rarfile
 
-from os.path import isfile, join, isdir, splitext, basename
+from os.path import isfile, join, isdir, splitext, basename, split
 import re
 
 import zipfile
@@ -29,6 +29,22 @@ class FileBase:
 
     def process_file(self):
         pass
+
+    def rename(self):
+        bn = basename(self.filename)
+        (bn, ext) = splitext(bn)
+        (head, _) = split(self.filename)
+        m = re.search(r"\W(\d+)(nd|rd|th)$",bn)
+        if m:
+            logging.debug("Match edition: {0}".format(m.string))
+            (start, end) = m.span()
+            length = (end - start)
+            bn = bn[:start] + ", " + m.group(1) + m.group(2) + " Edition" + bn[start+length:]
+            
+        bn = titlecase(bn.replace("-", " "))
+        self.filename = join(head,(bn + ext))
+        logging.debug("New filename: {0}".format(self.filename))
+        return(self.filename)
 
 
 class RARFile(FileBase):
@@ -89,9 +105,9 @@ class RARFile(FileBase):
 
         # Below code assumes that temporary, extracted files are located in current directory
         for tmpfile in extracted_files:
-            nameparts = splitext(tmpfile)
-            newfilename = titlecase(nameparts[0].replace("-", " ")) + nameparts[1]
-            rename(tmpfile, newfilename)
+            # Improve file name
+            rename(tmpfile, FileBase(join(TMPDIR,tmpfile)).rename())
+
         # Reacquire list of files
         extracted_files = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
 
@@ -111,6 +127,7 @@ class RARFile(FileBase):
                             myzip.write(tmpfile, compress_type=compression)
                     finally:
                         myzip.close()
+                        rename(zipname, FileBase(zipname).rename())
             except Exception as e: print(e)
 
         # Delete temp directory
