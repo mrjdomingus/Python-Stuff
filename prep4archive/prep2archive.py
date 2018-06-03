@@ -47,8 +47,13 @@ class FileBase:
             (start, end) = m.span()
             length = (end - start)
             bn = bn[:start] + ", " + m.group(1) + m.group(2) + " Edition" + bn[start+length:]
-            
-        bn = titlecase(bn.replace("-", " "))
+
+        # Kludge to deal with zip files that have been processed earlier
+        if True:
+            bn = titlecase(bn.replace("-", " "))
+        else:
+            bn = titlecase(bn)
+
         self.filename = join(head,(bn + ext))
         logging.debug("New filename: {0}".format(self.filename))
         return(self.filename)
@@ -145,7 +150,11 @@ class RAR_or_ZIPFile(FileBase):
             shutil.move(extracted_files[0], self.__out_dir)
         else:
             # Create zip file
-            zipname = join(self.__out_dir,  titlecase(splitext(basename(self.filename))[0].replace("-", " ")) + ".zip")
+            # Kludge to deal with zip files that have been processed earlier
+            if False:
+                zipname = join(self.__out_dir,  titlecase(splitext(basename(self.filename))[0].replace("-", " ")) + ".zip")
+            else:
+                zipname = join(self.__out_dir,  titlecase(splitext(basename(self.filename))[0]) + ".zip")
             try:
                 with ZipFile(zipname, 'w') as myzip:
                     try:
