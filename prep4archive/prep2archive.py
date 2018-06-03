@@ -22,7 +22,14 @@ import shutil
 from titlecase import titlecase
 from tempfile import mkdtemp
 
+from collections import namedtuple  
+from itertools import groupby
+
+
 class FileBase:
+    # Order of extensions to keep in descending prererence
+    ext_order = {'.zip': 0, '.pdf': 10, '.epub': 20, '.azw3': 30, '.mobi': 40 }
+    
     def __init__(self, filename):
         self.filename = filename # We expect the full filename here.
 
@@ -46,11 +53,58 @@ class FileBase:
         logging.debug("New filename: {0}".format(self.filename))
         return(self.filename)
 
+    @staticmethod
+    def unduplicate(namelist):
+        no_more_dups = []
+        # Define namedtuple type
+        Document = namedtuple('Document', ['basename', 'ext'])
 
-class RARFile(FileBase):
+        documents = []
+        try:
+            # Split each file name in a (root, ext) tuple
+            for t in [(splitext(doc)) for doc in namelist]:
+                # Convert tuple in dict (via intermediate list) and convert then into namedtuple of type Document
+                documents.append(Document(**(dict(zip(['basename', 'ext'],list(t))))))
+        except Exception as e: print(e)
+
+        keyfunc = lambda doc: doc.basename
+
+        documents = sorted(documents, key=keyfunc)
+
+        doc_map = {}  
+        # Use dict comprehensions to group all extensions by root part of file name
+        try:
+            doc_map = {
+                key: [doc.ext for doc in group] 
+                for key, group in groupby(documents, lambda doc: doc.basename)
+            }
+        except Exception as e: print(e)
+
+        for key in doc_map.keys():
+            if len(doc_map[key]) == 1:
+                no_more_dups.append(key + doc_map[key][0] )
+            else:
+                extfunc = lambda ext: FileBase.ext_order.get(ext, 999)
+                extensions = sorted(doc_map[key], key=extfunc)
+                for ext in extensions:
+                    if ext == '.zip':
+                        no_more_dups.append(key + ext )
+                    else:
+                        no_more_dups.append(key + ext )
+                        break
+        
+        return no_more_dups
+
+class RAR_or_ZIPFile(FileBase):
     def __init__(self, filename, out_dir):
         super().__init__(filename)
-        self.__rar = rarfile.RarFile(filename)
+        (_, ext) =splitext(self.filename)
+        if ext.lower() == ".rar":
+            self.__rar_or_zip = rarfile.RarFile(filename)
+        elif ext.lower() == ".zip":
+            self.__rar_or_zip = zipfile.ZipFile(filename)
+        else:
+            logging.error("Unsupported type of compressed file: {0}!".format(ext))
         self.__out_dir = out_dir
 
 
@@ -60,46 +114,18 @@ class RARFile(FileBase):
         TMPDIR = mkdtemp()
         chdir(TMPDIR)
 
-        namelist = self.__rar.namelist()
+        namelist = self.__rar_or_zip.namelist()
 
-        zipIndex, pdfIndex, epubIndex, azw3Index, mobiIndex = [-1] * 5
-        # Warning, below for loop assumes that each specific file extension occurs only ONCE in the container file!
-        for idx, name in enumerate(namelist):
-            if re.search(".zip$", name.lower()):
-                zipIndex = idx
-                logging.debug(">>>zip-file: {0}".format(name))
-            elif re.search(".pdf$", name.lower()):
-                pdfIndex = idx
-                logging.debug(">>>pdf-file: {0}".format(name))
-            elif re.search(".epub$", name.lower()):
-                epubIndex = idx
-                logging.debug(">>>epub-file: {0}".format(name))
-            elif re.search(".azw3$", name.lower()):
-                azw3Index = idx
-                logging.debug(">>>azw3-file: {0}".format(name))
-            elif re.search(".mobi$", name.lower()):
-                mobiIndex = idx
-                logging.debug(">>>mobi-file: {0}".format(name))
-            else:
-                logging.warning(">>>unexptected file: {0}".format(name))
+        namelist = FileBase.unduplicate(namelist)
 
         # First empty TMPDIR        
         files_to_clean = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
         for f in files_to_clean:
             remove(join(TMPDIR,f))
 
-        # Save the zip file in any case
-        if zipIndex > -1:
-            self.__rar.extract(namelist[zipIndex], TMPDIR)
-
-        if pdfIndex > -1:
-            self.__rar.extract(namelist[pdfIndex], TMPDIR)
-        elif epubIndex > -1:
-            self.__rar.extract(namelist[epubIndex], TMPDIR)
-        elif azw3Index > -1:
-            self.__rar.extract(namelist[azw3Index], TMPDIR)
-        elif mobiIndex > -1:
-            self.__rar.extract(namelist[mobiIndex], TMPDIR)
+        # Extract files from unduplicated list
+        for name in namelist:
+            self.__rar_or_zip.extract(name, TMPDIR)
         
         extracted_files = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
 
@@ -144,11 +170,11 @@ def main(in_dir, out_dir):
     # Loop thru all RAR files
     for filename in onlyfiles:
         # If not a RAR file, skip file
-        if not re.search(".rar$", filename.lower()):
+        if not re.search("(.rar$|.zip$)", filename.lower()):
             continue
 
         logging.info("Processing: {0}".format(filename))
-        rar = RARFile(join(in_dir, filename), out_dir)
+        rar = RAR_or_ZIPFile(join(in_dir, filename), out_dir)
         rar.process_file()
     
     print("Done!")
