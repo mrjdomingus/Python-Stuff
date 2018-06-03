@@ -47,22 +47,25 @@ class RARFile(FileBase):
         namelist = self.__rar.namelist()
 
         zipIndex, pdfIndex, epubIndex, azw3Index, mobiIndex = [-1] * 5
+        # Warning, below for loop assumes that each specific file extension occurs only ONCE in the container file!
         for idx, name in enumerate(namelist):
             if re.search(".zip$", name.lower()):
                 zipIndex = idx
-                logging.debug(">>>zipfile: {0}".format(namelist[zipIndex]))
-            if re.search(".pdf$", name.lower()):
+                logging.debug(">>>zip-file: {0}".format(name))
+            elif re.search(".pdf$", name.lower()):
                 pdfIndex = idx
-                logging.debug(">>>pdffile: {0}".format(namelist[pdfIndex]))
-            if re.search(".epub$", name.lower()):
+                logging.debug(">>>pdf-file: {0}".format(name))
+            elif re.search(".epub$", name.lower()):
                 epubIndex = idx
-                logging.debug(">>>epubfile: {0}".format(namelist[epubIndex]))
-            if re.search(".azw3$", name.lower()):
+                logging.debug(">>>epub-file: {0}".format(name))
+            elif re.search(".azw3$", name.lower()):
                 azw3Index = idx
-                logging.debug(">>>azw3file: {0}".format(namelist[azw3Index]))
-            if re.search(".mobi$", name.lower()):
+                logging.debug(">>>azw3-file: {0}".format(name))
+            elif re.search(".mobi$", name.lower()):
                 mobiIndex = idx
-                logging.debug(">>>mobifile: {0}".format(namelist[mobiIndex]))
+                logging.debug(">>>mobi-file: {0}".format(name))
+            else:
+                logging.warning(">>>unexptected file: {0}".format(name))
 
         # First empty TMPDIR        
         files_to_clean = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
@@ -84,11 +87,12 @@ class RARFile(FileBase):
         
         extracted_files = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
 
+        # Below code assumes that temporary, extracted files are located in current directory
         for tmpfile in extracted_files:
             nameparts = splitext(tmpfile)
             newfilename = titlecase(nameparts[0].replace("-", " ")) + nameparts[1]
             rename(tmpfile, newfilename)
-        # Reaquire list of files
+        # Reacquire list of files
         extracted_files = [f for f in listdir(TMPDIR) if isfile(join(TMPDIR, f))]
 
         if len(extracted_files) == 0:
