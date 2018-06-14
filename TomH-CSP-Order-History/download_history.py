@@ -30,9 +30,11 @@ headers = {'Accept': 'application/json', 'Authorization': bearer_token }
 # Also see: https://docs.microsoft.com/en-us/partner-center/develop/get-a-list-of-customers
 
 size= 100
-request_url = base_url + "/customers?size=%d" % size
+request_url = base_url + "/customers"
 
-response = requests.get(request_url, headers = headers)
+parameters = {'size': 100}
+
+response = requests.get(request_url, headers=headers, params=parameters)
 
 if response.status_code == requests.codes.ok:
         response.encoding = "utf-8-sig" # To remove annoying Unicode BOM
