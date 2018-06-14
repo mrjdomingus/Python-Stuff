@@ -3,11 +3,12 @@ import oauthlib
 import requests_oauthlib
 import json
 import codecs
+import os
 
 client_id = '1950a258-227b-4e31-a9cf-717495945fc2' # a.k.a. Powershell
 client_secret = '' # Optional
-username = 'your_username' # Do NOT store actual user name!
-password = 'your_password' # Do NOT store actual password!
+username = os.environ['CSP_USERNAME'] # Do NOT store actual user name!
+password = os.environ['CSP_PASSWORD'] # Do NOT store actual password!
 scope = 'openid'
 resource = "https://api.partnercenter.microsoft.com"
 
