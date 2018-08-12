@@ -1,3 +1,8 @@
 
 prep4archive/venv/
 TomH-CSP-Order-History/venv
+prep4archive/\.vscode/launch\.json
+
+prep4archive/\.vscode/settings\.json
+
+TomH-CSP-Order-History/\.vscode/launch\.json
